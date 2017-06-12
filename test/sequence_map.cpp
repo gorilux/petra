@@ -3,25 +3,14 @@
 // See accompanying LICENSE.md or https://opensource.org/licenses/MIT
 
 #include "petra/sequence_map.hpp"
-#include "petra/utilities/sequence.hpp"
 #include "utilities.hpp"
+#include "petra/utilities/sequence.hpp"
 
 #include <iostream>
 
 static constexpr std::size_t sequence_size = 3;
 static constexpr std::size_t upper_bound = 4;
 using Array = std::array<std::size_t, sequence_size>;
-
-struct minimal {
-  template<std::size_t... Sequence>
-  auto operator()(std::index_sequence<Sequence...>&&) noexcept {
-  }
-
-  auto operator()(petra::InvalidInputError&&) noexcept {
-  }
-};
-
-
 
 struct callback {
   template<std::size_t... Sequence, std::size_t... Indices>
@@ -31,7 +20,13 @@ struct callback {
   }
 
   template<typename... Args>
-  auto operator()(petra::InvalidInputError&&, Args&&...) noexcept {
+  auto operator()(petra::InvalidInputError&&, const Array& input,
+                  Args&&...) noexcept {
+    for (std::size_t i = 0; i < sequence_size; ++i) {
+      if (input[i] >= upper_bound) {
+        return;
+      }
+    }
     PETRA_ASSERT(false);
   }
 };
@@ -39,24 +34,23 @@ struct callback {
 int main() {
   {
     Array test{{1, 3, 2}};
-    auto m = petra::make_sequence_map<sequence_size, upper_bound>(minimal{});
-    static_assert(noexcept(m(test)));
-  }
-  {
-    Array test{{1, 3, 2}};
 
     auto m = petra::make_sequence_map<sequence_size, upper_bound>(callback{});
-    // static_assert(noexcept(m(test, test, std::make_index_sequence<sequence_size>{})));
+    static_assert(
+        noexcept(m(test, test, std::make_index_sequence<sequence_size>{})));
     m(test, test, std::make_index_sequence<sequence_size>{});
-  }
-  {
-    /*
     // Error case
-    std::array<std::size_t, sequence_size> test{{1, 3, 2}};
-
-    auto m = petra::make_sequence_map<sequence_size, upper_bound>(callback{});
+    test[0] = 4;
     m(test, test, std::make_index_sequence<sequence_size>{});
-    */
+  }
+
+  {
+    auto callback_with_throw = [](auto&&...) {
+      throw std::runtime_error("Catch this!");
+    };
+    auto m = petra::make_sequence_map<sequence_size, upper_bound>(
+        callback_with_throw);
+    static_assert(!noexcept(m(std::declval<Array>())));
   }
 
   return 0;

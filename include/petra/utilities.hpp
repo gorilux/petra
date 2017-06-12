@@ -101,5 +101,10 @@ namespace petra {
       return i;
     }
 
+    template<typename T, auto Size>
+    const T& at(const std::array<T, Size>& array, std::size_t pos) noexcept {
+      return array[pos];
+    }
+
   }  // namespace utilities
 }  // namespace petra

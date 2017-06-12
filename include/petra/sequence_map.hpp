@@ -20,6 +20,8 @@ namespace petra {
    * */
   template<typename F, auto SeqSize, decltype(SeqSize) UpperBound>
   struct SequenceMap {
+    static_assert(SeqSize > 0, "Cannot instantiate a sequence map of size zero.");
+
     constexpr SequenceMap(F&& f) noexcept : callback(f) {}
 
     using Integral = decltype(SeqSize);
@@ -28,9 +30,9 @@ namespace petra {
 
     template<typename... Args>
     constexpr auto operator()(const Array& input, Args&&... args)
-        PETRA_NOEXCEPT_FUNCTION_BODY(seq_map(input[static_cast<Integral>(0)],
-                                             input, callback,
-                                             std::forward<Args>(args)...));
+        PETRA_NOEXCEPT_FUNCTION_BODY(
+            seq_map(utilities::at(input, static_cast<Integral>(0)), input,
+                    callback, std::forward<Args>(args)...));
 
   private:
     template<Integral CurrentIndex, Integral... Sequence>
