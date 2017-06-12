@@ -36,7 +36,7 @@ namespace petra {
 
   // Utility for error handling
   template<typename T, auto Size>
-  static constexpr bool invalid_input() {
+  static constexpr bool invalid_input() noexcept {
     if constexpr (Constant<T>()) {
       if constexpr (std::is_integral<decltype(T::value)>{}) {
         return T::value >= Size;
@@ -51,7 +51,7 @@ namespace petra {
     using Integral = decltype(N);
     F callable;
 
-    constexpr SequentialTable(F&& f) : callable(f) {}
+    constexpr SequentialTable(F&& f) noexcept : callable(f) {}
 
     template<Integral I, typename... Args>
     constexpr auto apply(Integral i, Args&&... args) noexcept(

@@ -12,45 +12,57 @@
 
 namespace petra {
 
+#define PETRA_NOEXCEPT_FUNCTION_BODY(...)                                      \
+  noexcept(noexcept(__VA_ARGS__)) { return __VA_ARGS__; }
+
   /* Given a sequence size known at compile time, map a std::array to a
    * std::integer_sequence
    * */
-
-  // do we need a "recursive sequential table?"
   template<typename F, auto SeqSize, decltype(SeqSize) UpperBound>
   struct SequenceMap {
-    constexpr SequenceMap(F&& f) : callback(f) {}
+    constexpr SequenceMap(F&& f) noexcept : callback(f) {}
+
     using Integral = decltype(SeqSize);
     static constexpr Integral Size = utilities::abs(SeqSize);
+    using Array = std::array<Integral, Size>;
 
-    constexpr auto operator()(const std::array<Integral, Size>& input) {
-      return seq_map(input[static_cast<Integral>(0)], input, callback);
-    }
+    template<typename... Args>
+    constexpr auto operator()(const Array& input, Args&&... args)
+        PETRA_NOEXCEPT_FUNCTION_BODY(seq_map(input[static_cast<Integral>(0)],
+                                             input, callback,
+                                             std::forward<Args>(args)...));
 
   private:
     template<Integral CurrentIndex, Integral... Sequence>
     struct helper {
-      // why do these have to be const anyway?
-      template<Integral I>
+      template<Integral I, typename... Args>
       constexpr auto operator()(std::integral_constant<Integral, I>&&,
-                                const std::array<Integral, Size>& input,
-                                F& callback) const {
-        if constexpr (CurrentIndex == Size - 1) {
-          return callback(std::integer_sequence<Integral, Sequence..., I>{});
+                                const Array& input, F& callback,
+                                Args&&... args) const
+          noexcept(noexcept(
+              callback(std::integer_sequence<Integral, Sequence..., I>{},
+                       std::forward<Args>(args)...))) {
+        if constexpr (Size == 0) {
+          return callback(std::integer_sequence<Integral>{},
+                          std::forward<Args>(args)...);
+        } else if constexpr (CurrentIndex == Size - 1) {
+          static_assert(sizeof...(Sequence) + 1 == Size);
+          return callback(std::integer_sequence<Integral, Sequence..., I>{},
+                          std::forward<Args>(args)...);
         } else {
           static_assert(CurrentIndex < Size - 1);
+          constexpr Integral NextIndex = CurrentIndex + static_cast<Integral>(1);
           return make_sequential_table<UpperBound>(
-              helper<CurrentIndex + static_cast<Integral>(1), Sequence...,
-                     I>{})(input[CurrentIndex + static_cast<Integral>(1)],
-                           input, callback);
+              helper<NextIndex, Sequence..., I>{})(
+              input[NextIndex], input, callback, std::forward<Args>(args)...);
         }
       }
 
-      constexpr auto operator()(InvalidInputError&& e,
-                                const std::array<Integral, Size>&,
-                                F& callback) const {
-        return callback(std::forward<InvalidInputError>(e));
-      }
+      template<typename... Args>
+      constexpr auto operator()(InvalidInputError&& e, const Array&,
+                                F& callback, Args&&... args) const
+          PETRA_NOEXCEPT_FUNCTION_BODY(callback(
+              std::forward<InvalidInputError>(e), std::forward<Args>(args)...));
     };
 
     static constexpr auto seq_map =
@@ -60,8 +72,10 @@ namespace petra {
   };
 
   template<auto SeqSize, decltype(SeqSize) UpperBound, typename F>
-  constexpr decltype(auto) make_sequence_map(F&& f) {
-    return SequenceMap<F, SeqSize, UpperBound>(std::forward<F>(f));
-  }
+  constexpr decltype(auto) make_sequence_map(F&& f)
+      PETRA_NOEXCEPT_FUNCTION_BODY(
+          SequenceMap<F, SeqSize, UpperBound>(std::forward<F>(f)));
+
+#undef PETRA_NOEXCEPT_FUNCTION_BODY
 
 }  // namespace petra
