@@ -91,5 +91,15 @@ namespace petra {
       return std::is_same<std::decay_t<T>, InvalidInputError>{};
     }
 
+    template<typename T>
+    static T constexpr abs(T i) {
+      if constexpr (std::is_signed<T>{}) {
+        if (i < 0) {
+          return i * -1;
+        }
+      }
+      return i;
+    }
+
   }  // namespace utilities
 }  // namespace petra
